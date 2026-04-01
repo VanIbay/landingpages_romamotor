@@ -3,61 +3,41 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 
-/**
- * Generate SVG path for a gear shape.
- * @param {number} outerR  — tip radius (tooth tip)
- * @param {number} innerR  — root radius (valley / dedendum)
- * @param {number} N       — number of teeth
- */
+/** Generate SVG path for a gear shape centered at (0,0). */
 function gearPath(outerR, innerR, N) {
   const step = (2 * Math.PI) / N;
-  const half = step * 0.28; // each tooth occupies ~56% of pitch angle
+  const half = step * 0.28;
   let d = '';
-
   for (let i = 0; i < N; i++) {
     const mid = i * step - Math.PI / 2;
-    const aL = mid - half; // tooth left angle
-    const aR = mid + half; // tooth right angle
-
+    const aL = mid - half;
+    const aR = mid + half;
     const vx = +(innerR * Math.cos(aL)).toFixed(3);
     const vy = +(innerR * Math.sin(aL)).toFixed(3);
-
-    if (i === 0) {
-      d += `M ${vx},${vy} `;
-    } else {
-      // Arc along root circle (valley)
-      d += `A ${innerR} ${innerR} 0 0 1 ${vx},${vy} `;
-    }
-
-    // Rise to tip — left flank
+    if (i === 0) d += `M ${vx},${vy} `;
+    else d += `A ${innerR} ${innerR} 0 0 1 ${vx},${vy} `;
     d += `L ${+(outerR * Math.cos(aL)).toFixed(3)},${+(outerR * Math.sin(aL)).toFixed(3)} `;
-    // Tooth face (small arc at tip — slight rounding)
     d += `A ${outerR} ${outerR} 0 0 1 ${+(outerR * Math.cos(aR)).toFixed(3)},${+(outerR * Math.sin(aR)).toFixed(3)} `;
-    // Fall to root — right flank
     d += `L ${+(innerR * Math.cos(aR)).toFixed(3)},${+(innerR * Math.sin(aR)).toFixed(3)} `;
   }
-
-  d += 'Z';
-  return d;
+  return d + 'Z';
 }
 
-// Pre-compute gear paths (static — only computed once)
-const LARGE_PATH  = gearPath(55, 42, 14);  // big   gear — brand color
-const MEDIUM_PATH = gearPath(36, 26, 9);   // mid   gear — steel
-const SMALL_PATH  = gearPath(21, 15, 5);   // small gear — steel dark
+// Pre-computed gear paths (centered at 0,0)
+const LARGE_PATH  = gearPath(55, 42, 14);
+const MEDIUM_PATH = gearPath(36, 26, 9);
+const SMALL_PATH  = gearPath(22, 16, 6);
 
 /**
- * GearIcon
+ * GearIcon — 3 gears with correct meshing ratios.
  *
  * Layout (viewBox 220 165):
- *   Large gear  — center (75, 95)  — 14 teeth, R=55
- *   Medium gear — center (166, 95) — 9 teeth,  R=36   ← meshes with large (dist=91=55+36)
- *   Small gear  — center (166, 37) — 5 teeth,  R=21   ← meshes with medium (dist=58=36+22)
+ *   Large  : center (75,  95) — R=55, N=14 — spins CW  3.0s
+ *   Medium : center (166, 95) — R=36, N=9  — spins CCW 1.93s  (dist from large = 91 = 55+36 ✓)
+ *   Small  : center (166, 37) — R=22, N=6  — spins CW  1.29s  (dist from medium = 58 = 36+22 ✓)
  *
- * Rotation ratios (for realistic meshing):
- *   Large  : 3.0s CW  (ω₁)
- *   Medium : 3×9/14 ≈ 1.93s CCW  (ω₂ = ω₁ × N₁/N₂)
- *   Small  : 3×5/14×... = 1.93×5/9 ≈ 1.07s CW
+ * KEY: outer <g> uses SVG transform attribute for POSITION (not CSS),
+ *      inner <g> uses CSS animation for ROTATION only — no conflict!
  */
 function GearIcon() {
   return (
@@ -67,73 +47,66 @@ function GearIcon() {
       height="165"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
+      overflow="visible"
     >
-      {/* ─── LARGE GEAR (amber / brand) ─── */}
-      <g transform="translate(75 95)"
-        style={{ animation: 'gearCW 3s linear infinite', transformBox: 'fill-box', transformOrigin: 'center' }}>
-        {/* Gear body */}
-        <path d={LARGE_PATH} fill="#92400e" stroke="#f59e0b" strokeWidth="1.5" strokeLinejoin="round"/>
-        {/* Hub ring */}
-        <circle cx="0" cy="0" r="28" fill="#78350f" stroke="#fbbf24" strokeWidth="2"/>
-        {/* Spokes */}
-        {[0, 51.4, 102.8, 154.2, 205.7, 257.1].map((deg, i) => (
-          <line key={i}
-            x1={+(10 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y1={+(10 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            x2={+(25 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y2={+(25 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            stroke="#fbbf24" strokeWidth="3" strokeLinecap="round"
-          />
-        ))}
-        {/* Center bolt */}
-        <circle cx="0" cy="0" r="9"  fill="#92400e" stroke="#fbbf24" strokeWidth="2"/>
-        <circle cx="0" cy="0" r="4"  fill="#fbbf24"/>
-        <circle cx="0" cy="0" r="2"  fill="#fff7ed"/>
+      {/* ─── LARGE GEAR — amber, brand color ─── */}
+      {/* Outer g: SVG attribute for position (immune to CSS override) */}
+      <g transform="translate(75,95)">
+        {/* Inner g: CSS animation for rotation only, origin (0,0) = gear center */}
+        <g style={{ animation: 'gearCW 3s linear infinite', transformOrigin: '0px 0px' }}>
+          <path d={LARGE_PATH} fill="#92400e" stroke="#f59e0b" strokeWidth="1.5" strokeLinejoin="round"/>
+          <circle cx="0" cy="0" r="28" fill="#78350f" stroke="#fbbf24" strokeWidth="2"/>
+          {/* 6 spokes evenly spaced */}
+          {[0,60,120,180,240,300].map((deg,i) => (
+            <line key={i}
+              x1={+(10*Math.cos(deg*Math.PI/180)).toFixed(2)} y1={+(10*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              x2={+(26*Math.cos(deg*Math.PI/180)).toFixed(2)} y2={+(26*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              stroke="#fbbf24" strokeWidth="3" strokeLinecap="round"
+            />
+          ))}
+          <circle cx="0" cy="0" r="9"  fill="#92400e" stroke="#fbbf24" strokeWidth="2"/>
+          <circle cx="0" cy="0" r="4"  fill="#fbbf24"/>
+          <circle cx="0" cy="0" r="1.8" fill="#fff7ed"/>
+        </g>
       </g>
 
-      {/* ─── MEDIUM GEAR (cool steel) ─── */}
-      <g transform="translate(166 95)"
-        style={{ animation: 'gearCCW 1.93s linear infinite', transformBox: 'fill-box', transformOrigin: 'center' }}>
-        <path d={MEDIUM_PATH} fill="#334155" stroke="#64748b" strokeWidth="1.5" strokeLinejoin="round"/>
-        <circle cx="0" cy="0" r="16" fill="#1e293b" stroke="#94a3b8" strokeWidth="1.5"/>
-        {/* Spokes */}
-        {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-          <line key={i}
-            x1={+(6 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y1={+(6 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            x2={+(14 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y2={+(14 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"
-          />
-        ))}
-        <circle cx="0" cy="0" r="5"  fill="#334155" stroke="#94a3b8" strokeWidth="1.5"/>
-        <circle cx="0" cy="0" r="2.5" fill="#94a3b8"/>
+      {/* ─── MEDIUM GEAR — steel blue ─── */}
+      <g transform="translate(166,95)">
+        <g style={{ animation: 'gearCCW 1.93s linear infinite', transformOrigin: '0px 0px' }}>
+          <path d={MEDIUM_PATH} fill="#334155" stroke="#64748b" strokeWidth="1.5" strokeLinejoin="round"/>
+          <circle cx="0" cy="0" r="16" fill="#1e293b" stroke="#94a3b8" strokeWidth="1.5"/>
+          {[0,60,120,180,240,300].map((deg,i) => (
+            <line key={i}
+              x1={+(6*Math.cos(deg*Math.PI/180)).toFixed(2)} y1={+(6*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              x2={+(14*Math.cos(deg*Math.PI/180)).toFixed(2)} y2={+(14*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"
+            />
+          ))}
+          <circle cx="0" cy="0" r="5"   fill="#334155" stroke="#94a3b8" strokeWidth="1.5"/>
+          <circle cx="0" cy="0" r="2.5" fill="#94a3b8"/>
+        </g>
       </g>
 
-      {/* ─── SMALL GEAR (darker steel) ─── */}
-      <g transform="translate(166 37)"
-        style={{ animation: 'gearCW 1.07s linear infinite', transformBox: 'fill-box', transformOrigin: 'center' }}>
-        <path d={SMALL_PATH} fill="#1e293b" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round"/>
-        <circle cx="0" cy="0" r="9"  fill="#0f172a" stroke="#64748b" strokeWidth="1.5"/>
-        {/* Spokes */}
-        {[0, 72, 144, 216, 288].map((deg, i) => (
-          <line key={i}
-            x1={+(3.5 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y1={+(3.5 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            x2={+(8 * Math.cos(deg * Math.PI / 180)).toFixed(2)}
-            y2={+(8 * Math.sin(deg * Math.PI / 180)).toFixed(2)}
-            stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"
-          />
-        ))}
-        <circle cx="0" cy="0" r="3.5" fill="#1e293b" stroke="#64748b" strokeWidth="1.2"/>
-        <circle cx="0" cy="0" r="1.5" fill="#64748b"/>
+      {/* ─── SMALL GEAR — dark steel ─── */}
+      <g transform="translate(166,37)">
+        <g style={{ animation: 'gearCW 1.29s linear infinite', transformOrigin: '0px 0px' }}>
+          <path d={SMALL_PATH} fill="#1e293b" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round"/>
+          <circle cx="0" cy="0" r="10" fill="#0f172a" stroke="#64748b" strokeWidth="1.5"/>
+          {[0,60,120,180,240,300].map((deg,i) => (
+            <line key={i}
+              x1={+(4*Math.cos(deg*Math.PI/180)).toFixed(2)} y1={+(4*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              x2={+(9*Math.cos(deg*Math.PI/180)).toFixed(2)} y2={+(9*Math.sin(deg*Math.PI/180)).toFixed(2)}
+              stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"
+            />
+          ))}
+          <circle cx="0" cy="0" r="3.5" fill="#1e293b" stroke="#64748b" strokeWidth="1.2"/>
+          <circle cx="0" cy="0" r="1.5" fill="#64748b"/>
+        </g>
       </g>
 
-      {/* ─── Subtle mesh highlight dots ─── */}
-      {/* Where large and medium mesh */}
+      {/* mesh-point highlights */}
       <circle cx="130" cy="95" r="2.5" fill="#fbbf24" opacity="0.5"/>
-      {/* Where medium and small mesh */}
-      <circle cx="166" cy="58" r="2" fill="#94a3b8" opacity="0.5"/>
+      <circle cx="166" cy="59" r="2"   fill="#94a3b8" opacity="0.5"/>
     </svg>
   );
 }
@@ -161,8 +134,8 @@ export default function GlobalLoadingOverlay() {
   return (
     <>
       <style>{`
-        @keyframes gearCW  { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
-        @keyframes gearCCW { from { transform: rotate(0deg); }   to { transform: rotate(-360deg); } }
+        @keyframes gearCW  { from { transform: rotate(0deg); }    to { transform: rotate(360deg); } }
+        @keyframes gearCCW { from { transform: rotate(0deg); }    to { transform: rotate(-360deg); } }
       `}</style>
 
       <AnimatePresence>
@@ -200,10 +173,8 @@ export default function GlobalLoadingOverlay() {
                 <p className="text-gray-500 text-sm">Memuat data…</p>
               </div>
 
-              {/* Progress bar */}
               <div className="w-36 h-0.5 rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary/70"
+                <div className="h-full rounded-full bg-primary/70"
                   style={{ animation: 'loadingBar 1.8s ease-in-out infinite' }}
                 />
               </div>
