@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider } from './context/DataContext';
+import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import HomePage from './pages/HomePage';
 import BlogDetailPage from './pages/BlogDetailPage';
 import AdminLogin from './pages/AdminLogin';
@@ -14,6 +15,7 @@ function App() {
       <ThemeProvider>
         <DataProvider>
           <BrowserRouter>
+            <GlobalLoadingOverlay />
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/blog/:slug" element={<BlogDetailPage />} />

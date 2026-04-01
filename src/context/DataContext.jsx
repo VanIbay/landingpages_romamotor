@@ -25,7 +25,8 @@ export function DataProvider({ children }) {
   const [faqs, setFaqs] = useState(defaultFAQs);
   const [runningTexts, setRunningTexts] = useState(defaultRunningTexts);
   const [blogPosts, setBlogPosts] = useState(defaultBlogPosts);
-  const [gallery, setGallery] = useState(defaultGallery);
+  // Gallery starts EMPTY — all data comes from Google Sheets
+  const [gallery, setGallery] = useState([]);
   const [settings, setSettings] = useState(defaultSettings);
   const [messages, setMessages] = useState(defaultMessages);
   const [loading, setLoading] = useState(true);
@@ -36,23 +37,47 @@ export function DataProvider({ children }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    console.group('%c[DataContext] loadData()', 'color:#6ee7b7;font-weight:bold');
+    console.log('APPS_SCRIPT_URL configured:', !!import.meta.env.VITE_APPS_SCRIPT_URL);
+
     try {
       const raw = await fetchAllData();
-      if (!raw) { setLoading(false); return; }
+
+      if (!raw) {
+        console.warn('[DataContext] No APPS_SCRIPT_URL — using local default data (gallery will be empty).');
+        console.groupEnd();
+        setLoading(false);
+        return;
+      }
+
+      console.log('[DataContext] Raw API response keys:', Object.keys(raw));
+      console.log('[DataContext] raw.gallery:', raw.gallery);
 
       if (raw.services) setServices(castServices(raw.services));
       if (raw.testimonials) setTestimonials(castTestimonials(raw.testimonials));
       if (raw.faqs) setFaqs(castFaqs(raw.faqs));
       if (raw.running_texts) setRunningTexts(castRunningTexts(raw.running_texts));
       if (raw.blog_posts) setBlogPosts(castBlogPosts(raw.blog_posts));
-      if (raw.gallery) setGallery(castGallery(raw.gallery));
+
+      if (raw.gallery) {
+        const parsed = castGallery(raw.gallery);
+        console.log('[DataContext] Gallery parsed (%d items):', parsed.length, parsed);
+        setGallery(parsed);
+      } else {
+        console.warn('[DataContext] ⚠ raw.gallery is missing from API response! Keys found:', Object.keys(raw));
+      }
+
       if (raw.settings) setSettings((prev) => ({ ...prev, ...castSettings(raw.settings) }));
       if (raw.messages) setMessages(castMessages(raw.messages));
+
+      console.log('[DataContext] ✅ Data loaded successfully');
     } catch (err) {
-      console.error('[DataContext] Load error:', err);
+      console.error('[DataContext] ❌ Fetch error:', err.message, err);
       setError(err.message);
     } finally {
       setLoading(false);
+      console.groupEnd();
     }
   }, []);
 
