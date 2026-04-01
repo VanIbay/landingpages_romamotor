@@ -13,6 +13,47 @@ import {
 // Upload steps
 const STEP = { PICK: 'pick', CROP: 'crop', CAPTION: 'caption', UPLOADING: 'uploading' };
 
+/** Thumbnail card with shimmer skeleton + fade-in on load */
+function CMSThumbnail({ src, alt }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div className="absolute inset-0">
+      {/* Shimmer skeleton (shows while loading) */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-dark-card overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.6s ease-in-out infinite',
+            }}
+          />
+        </div>
+      )}
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-dark-card">
+          <FiImage className="w-7 h-7 text-gray-700" />
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => { setLoaded(true); setError(true); }}
+          className={`w-full h-full object-cover transition-all duration-500
+                      group-hover:scale-105
+                      ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function GalleryManager() {
   const { gallery, addGalleryItem, deleteGalleryItem, saving } = useData();
 
@@ -180,14 +221,9 @@ export default function GalleryManager() {
           {gallery.map((item, idx) => (
             <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-square bg-dark-card border border-white/5">
               {item.url ? (
-                <img
-                  src={item.url}
-                  alt={item.caption}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                />
+                <CMSThumbnail src={item.url} alt={item.caption} />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center">
                   <FiImage className="w-8 h-8 text-gray-600" />
                 </div>
               )}
